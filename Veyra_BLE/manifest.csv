@@ -1,0 +1,11 @@
+filename,activity_label,detailed_label,round,use_for_training,filepath,file_exists
+serial_20261104_181012_parsed.csv,stationary,Stationary presence,1.0,True,data/serial_20261104_181012_parsed.csv,True
+serial_20261104_181654_parsed.csv,mixed_movement,"1 person walking, 3 stationary",1.0,True,data/serial_20261104_181654_parsed.csv,True
+serial_20261104_182053_parsed.csv,movement,4 people walking,1.0,True,data/serial_20261104_182053_parsed.csv,True
+serial_20261104_182639_parsed.csv,empty,Empty room,1.0,True,data/serial_20261104_182639_parsed.csv,True
+serial_20261104_183134_parsed.csv,stationary,Stationary presence,2.0,True,data/serial_20261104_183134_parsed.csv,True
+serial_20261104_184126_parsed.csv,empty,Empty room,2.0,True,data/serial_20261104_184126_parsed.csv,True
+serial_20261104_184512_parsed.csv,mixed_movement,"1 person walking, 3 stationary",2.0,True,data/serial_20261104_184512_parsed.csv,True
+serial_20261104_184638_parsed.csv,movement,4 people walking,2.0,True,data/serial_20261104_184638_parsed.csv,True
+serial_20261104_194024_parsed.csv,unlabelled,Unlabelled test recording,,False,data/serial_20261104_194024_parsed.csv,True
+serial_20261103_002801_parsed.csv,unlabelled,Unconfirmed recording,,False,data/serial_20261103_002801_parsed.csv,True
