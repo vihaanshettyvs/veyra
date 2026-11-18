@@ -1,0 +1,9 @@
+filename,label,round
+serial_20261104_181012_parsed.csv,stationary_presence,1
+serial_20261104_181654_parsed.csv,walking_1person_3stationary,1
+serial_20261104_182053_parsed.csv,walking_4people,1
+serial_20261104_182639_parsed.csv,empty_room,1
+serial_20261104_183134_parsed.csv,stationary_presence,2
+serial_20261104_184126_parsed.csv,empty_room,2
+serial_20261104_184512_parsed.csv,walking_1person_3stationary,2
+serial_20261104_184638_parsed.csv,walking_4people,2
