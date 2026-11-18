@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VEYRA</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#070b1a;--card:#0f1630;--line:#26336b;--tx:#eaf0ff;--mut:#8a97c4;
+--cy:#22e4ff;--vi:#8b5cff;--pk:#ff4fd8;
+--idle:#8b7cff;--still:#22d3ff;--move:#3dffb0;--ok:#3dffb0;--warn:#ffc83d;--bad:#ff5d73}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth;scroll-snap-type:y proximity}
+body{background:var(--bg);color:var(--tx);font:16px/1.5 "Space Grotesk",system-ui,sans-serif;overflow-x:hidden}
+nav{position:fixed;top:0;left:0;right:0;z-index:9;display:flex;align-items:center;gap:6px;padding:12px 28px;
+background:rgba(10,17,28,.8);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav b{font-size:20px;letter-spacing:.14em;margin-right:auto}
+nav a{color:var(--mut);text-decoration:none;padding:6px 12px;border-radius:8px;transition:.2s}
+nav a:hover,nav a.on{color:var(--tx);background:var(--card)}
+#live{font-size:13px;color:var(--ok);margin-left:12px}
+#live.off{color:var(--bad)}
+section{min-height:100vh;scroll-snap-align:start;padding:96px 28px 48px;max-width:1100px;margin:auto}
+h2{font-size:32px;margin-bottom:6px}
+.sub{color:var(--mut);margin-bottom:28px;max-width:60ch}
+.grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;transition:border-color .3s}
+.card h3{font-size:15px;color:var(--mut);font-weight:500;margin-bottom:10px}
+.big{font-size:26px;font-weight:700}
+.mut{color:var(--mut);font-size:14px}
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .7s,transform .7s}
+.reveal.in{opacity:1;transform:none}
+
+/* the orb: rings pulse like a Wi-Fi signal. Colour + speed follow room state */
+.orbwrap{display:flex;align-items:center;justify-content:center;height:210px}
+.orb{--c:var(--idle);--spd:4s;position:relative;width:64px;height:64px;border-radius:50%;background:var(--c);
+box-shadow:0 0 36px var(--c);transition:background .6s,box-shadow .6s}
+.orb i{position:absolute;inset:0;border-radius:50%;border:2px solid var(--c);opacity:0;animation:ring var(--spd) infinite ease-out}
+.orb i:nth-child(2){animation-delay:calc(var(--spd)/3)}
+.orb i:nth-child(3){animation-delay:calc(var(--spd)/1.5)}
+@keyframes ring{0%{transform:scale(1);opacity:.7}100%{transform:scale(3.4);opacity:0}}
+.orb.no_data{animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.3}}
+
+.verdict.ok{border-color:var(--ok)}.verdict.warn{border-color:var(--warn);box-shadow:0 0 28px rgba(251,191,36,.15)}
+.verdict.bad{border-color:var(--bad)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;background:var(--idle)}
+.dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}.dot.warn{background:var(--warn)}
+
+svg{width:100%;height:auto;display:block}
+.strip{display:flex;height:34px;border-radius:8px;overflow:hidden;margin-top:6px}
+.strip div{flex:1;transition:background .4s}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
+.legend span{font-size:13px;color:var(--mut)}
+
+.list{display:flex;flex-direction:column;gap:10px}
+.row{display:flex;gap:14px;align-items:center;padding:12px 16px;background:var(--card);border:1px solid var(--line);
+border-radius:12px;animation:slide .5s}
+@keyframes slide{from{opacity:0;transform:translateX(-16px)}}
+.row time{color:var(--mut);font-size:14px;min-width:84px}
+.tag{margin-left:auto;font-size:12px;padding:2px 10px;border-radius:99px;border:1px solid var(--line);color:var(--mut)}
+.tag.live{border-color:var(--warn);color:var(--warn)}
+.note{border-left:3px solid var(--warn);padding:8px 14px;margin-bottom:18px;color:var(--mut);font-size:14px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.chip{background:var(--card);color:var(--mut);border:1px solid var(--line);border-radius:99px;padding:6px 16px;
+cursor:pointer;font:inherit;font-size:14px;transition:.2s}
+.chip.on{color:var(--bg);background:var(--tx)}
+.empty{color:var(--mut);padding:18px}
+
+[hidden]{display:none!important}
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.bg::before{content:"";position:absolute;inset:-60% -30% -10%;transform:perspective(500px) rotateX(62deg);
+background-image:linear-gradient(rgba(139,92,255,.16) 1px,transparent 1px),linear-gradient(90deg,rgba(34,228,255,.14) 1px,transparent 1px);
+background-size:56px 56px;animation:grid 6s linear infinite;-webkit-mask-image:linear-gradient(transparent,#000 55%);mask-image:linear-gradient(transparent,#000 55%)}
+@keyframes grid{to{background-position:0 56px}}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.32}
+.b1{width:440px;height:440px;background:var(--vi);top:-120px;left:-100px}
+.b2{width:380px;height:380px;background:var(--cy);top:45%;right:-120px}
+.b3{width:360px;height:360px;background:var(--pk);bottom:-140px;left:30%}
+#prog{position:fixed;top:0;left:0;right:0;height:3px;z-index:30;transform-origin:0 50%;transform:scaleX(0);
+background:linear-gradient(90deg,var(--cy),var(--vi),var(--pk))}
+nav{background:rgba(7,11,26,.7)}
+nav a.on{box-shadow:inset 0 -2px var(--cy)}
+h2{font-size:34px;background:linear-gradient(90deg,#fff,var(--cy));-webkit-background-clip:text;background-clip:text;color:transparent;width:max-content;max-width:100%}
+.card{position:relative;background:linear-gradient(160deg,rgba(26,36,78,.75),rgba(12,18,40,.75));backdrop-filter:blur(8px);
+transition:transform .15s ease-out,border-color .3s;--mx:50%;--my:50%}
+.card>*{position:relative}
+.card::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .3s;
+background:radial-gradient(240px circle at var(--mx) var(--my),rgba(139,92,255,.32),transparent 65%)}
+.card:hover::before{opacity:1}
+.card::after{content:"";position:absolute;top:10px;right:10px;width:12px;height:12px;border-top:2px solid var(--cy);
+border-right:2px solid var(--cy);opacity:.6;pointer-events:none}
+.card:hover{border-color:var(--vi)}
+.row{transition:.2s}.row:hover{border-color:var(--cy);transform:translateX(5px)}
+.chip:hover{border-color:var(--cy);color:var(--tx)}.chip:active{transform:scale(.93)}
+.chip.on{background:linear-gradient(90deg,var(--cy),var(--vi));border-color:transparent;color:#06101f;font-weight:700}
+.orbwrap{position:relative}
+.orbwrap::before{content:"";position:absolute;width:170px;height:170px;border-radius:50%;border:1px dashed var(--vi);opacity:.55;animation:spin 18s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+#hero{display:flex;align-items:center;min-height:100vh}
+#hero h1{font-size:clamp(40px,8vw,88px);line-height:1.02;letter-spacing:-.02em;margin:18px 0;
+background:linear-gradient(90deg,var(--cy),var(--vi),var(--pk),var(--cy));background-size:250% 100%;
+-webkit-background-clip:text;background-clip:text;color:transparent;animation:flow 6s linear infinite,rise .9s .15s both}
+@keyframes flow{to{background-position:250% 0}}
+@keyframes rise{from{opacity:0;transform:translateY(30px)}}
+.hc>*:not(h1){animation:rise .9s both}
+.hc>.tagchip{animation-delay:0s}.hc>p{animation-delay:.35s}.hc>.heroact{animation-delay:.55s}
+.tagchip{display:inline-block;padding:6px 14px;border:1px solid var(--line);border-radius:99px;color:var(--cy);font-size:14px}
+.hc p{font-size:19px;color:var(--mut);max-width:52ch}
+.heroact{display:flex;gap:14px;flex-wrap:wrap;margin-top:28px}
+.cta{display:inline-block;padding:13px 26px;border-radius:12px;font-weight:700;text-decoration:none;color:#06101f;
+background:linear-gradient(90deg,var(--cy),var(--vi));box-shadow:0 0 24px rgba(34,228,255,.35);transition:.25s}
+.cta:hover{transform:translateY(-3px) scale(1.04);box-shadow:0 0 42px rgba(139,92,255,.65)}
+.cta:active{transform:scale(.95)}
+.cta.ghost{background:none;color:var(--bad);border:1px solid var(--bad);box-shadow:none}
+.cta.ghost:hover{background:rgba(255,93,115,.14);box-shadow:0 0 30px rgba(255,93,115,.4)}
+.callbtn{display:inline-block;margin-top:14px;padding:9px 18px;border-radius:10px;background:var(--bad);color:#fff;font-weight:700;text-decoration:none;transition:.2s}
+.callbtn:hover{transform:scale(1.05)}
+
+#sos{position:fixed;right:22px;bottom:22px;z-index:20;display:flex;flex-direction:column;align-items:flex-end;gap:12px}
+#sosBtn{width:66px;height:66px;border-radius:50%;border:0;cursor:pointer;font:700 17px "Space Grotesk",sans-serif;color:#fff;
+background:radial-gradient(circle at 30% 30%,#ff9aa8,var(--bad));animation:sosp 2s infinite;transition:transform .2s}
+#sosBtn:hover{transform:scale(1.1)}#sosBtn:active{transform:scale(.9)}
+@keyframes sosp{0%{box-shadow:0 0 0 0 rgba(255,93,115,.65)}100%{box-shadow:0 0 0 24px rgba(255,93,115,0)}}
+.sospanel{width:250px;padding:14px;border-radius:16px;background:rgba(12,18,40,.96);border:1px solid var(--bad);backdrop-filter:blur(10px);
+transform-origin:bottom right;transform:scale(.6);opacity:0;pointer-events:none;transition:.28s cubic-bezier(.3,1.4,.5,1)}
+#sos.open .sospanel{transform:none;opacity:1;pointer-events:auto}
+.sospanel p{color:var(--mut);font-size:13px;margin-bottom:8px}
+.sospanel a{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--tx);text-decoration:none;transition:.2s}
+.sospanel a:hover{background:rgba(255,93,115,.16);transform:translateX(4px)}
+.sospanel b{font-size:21px;min-width:48px;color:var(--bad)}
+.tap{position:fixed;width:14px;height:14px;margin:-7px;border-radius:50%;border:2px solid var(--cy);pointer-events:none;z-index:99;animation:tap .65s ease-out forwards}
+@keyframes tap{to{transform:scale(7);opacity:0}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+@media(max-width:640px){nav a{display:none}}
+</style>
+</head>
+<body>
+<div class="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<div id="prog"></div>
+<nav>
+  <b>VEYRA</b>
+  <a href="#overview">Overview</a><a href="#activity">Activity</a><a href="#alerts">Alerts</a>
+  <a href="#system">System</a><a href="#history">History</a>
+  <span id="live">Live</span>
+</nav>
+
+<section id="hero"><div class="hc">
+  <span class="tagchip">Wi-Fi CSI + Bluetooth, live</span>
+  <h1>Senses the room.<br>Never watches you.</h1>
+  <p>VEYRA detects presence from Wi-Fi signals and recognises your trusted device. No cameras. No GPS.</p>
+  <div class="heroact"><a class="cta" href="#overview">See the room live</a><a class="cta ghost" href="tel:112">Emergency: call 112</a></div>
+</div></section>
+
+<section id="overview">
+  <h2>Room right now</h2>
+  <p class="sub">Presence comes from Wi-Fi signals, identity from a trusted Bluetooth device. No cameras.</p>
+  <div class="grid">
+    <div class="card"><h3>Room status</h3>
+      <div class="orbwrap"><div class="orb" id="orb"><i></i><i></i><i></i></div></div>
+      <div class="big" id="roomLabel">Connecting…</div>
+      <div class="mut" id="roomSub">Waiting for data</div></div>
+    <div class="card"><h3>Trusted device</h3>
+      <div class="big" id="trustLabel">–</div>
+      <div class="mut" id="trustSub"></div></div>
+    <div class="card verdict" id="verdict"><h3>Who is here</h3>
+      <div class="big" id="verdictLabel">–</div>
+      <div class="mut" id="verdictSub"></div>
+      <a class="callbtn" id="verdictCall" href="tel:112" hidden>Feel unsafe? Call 112</a></div>
+  </div>
+</section>
+
+<section id="activity" class="reveal">
+  <h2>Activity</h2>
+  <p class="sub">Signal activity from the last two minutes. Higher means more movement in the room.</p>
+  <div class="card"><h3>Activity level</h3>
+    <svg viewBox="0 0 600 160" id="chart"></svg></div>
+  <div class="card" style="margin-top:18px"><h3>Room state timeline</h3>
+    <div class="strip" id="strip"></div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--idle)"></span>Empty</span>
+      <span><span class="dot" style="background:var(--still)"></span>Stationary</span>
+      <span><span class="dot" style="background:var(--move)"></span>Movement</span>
+      <span><span class="dot" style="background:var(--bad)"></span>No data</span>
+    </div></div>
+</section>
+
+<section id="alerts" class="reveal">
+  <h2>Unrecognised presence</h2>
+  <p class="sub">Raised when someone is detected but no trusted device is.</p>
+  <div class="note">An alert does not mean an intruder. It only means no matching trusted device was found.</div>
+  <div class="list" id="alertList"></div>
+</section>
+
+<section id="system" class="reveal">
+  <h2>System health</h2>
+  <p class="sub">If a sensor drops out, the room shows "No data" instead of "Empty".</p>
+  <div class="grid" id="health"></div>
+</section>
+
+<section id="history" class="reveal">
+  <h2>Event history</h2>
+  <p class="sub">Everything the system has noticed, newest first.</p>
+  <div class="chips" id="chips"></div>
+  <div class="list" id="events"></div>
+</section>
+
+<div id="sos">
+  <div class="sospanel" id="sosPanel">
+    <p>Emergency numbers (India). Tap to call.</p>
+    <a href="tel:112"><b>112</b> All emergencies</a>
+    <a href="tel:100"><b>100</b> Police</a>
+    <a href="tel:108"><b>108</b> Ambulance</a>
+    <a href="tel:101"><b>101</b> Fire</a>
+  </div>
+  <button id="sosBtn" aria-expanded="false" aria-label="Emergency numbers">SOS</button>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const STATE = {
+  empty:      {l: "Empty",                 c: "var(--idle)",  spd: "4.5s"},
+  stationary: {l: "Occupied, stationary",  c: "var(--still)", spd: "3s"},
+  movement:   {l: "Movement detected",     c: "var(--move)",  spd: "1.2s"},
+  no_data:    {l: "No data",               c: "var(--bad)",   spd: "4s"},
+};
+const ago = t => { const s = Math.max(0, Math.round(Date.now()/1000 - t));
+  return s < 60 ? s + "s ago" : Math.round(s/60) + " min ago"; };
+const clock = t => new Date(t*1000).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+const FILTERS = [["all","All"],["room","Room"],["trusted","Trusted device"],["unrecognised","Unrecognised"],["system","System"]];
+let filter = "all", last = null;
+
+async function poll() {
+  try {
+    const r = await fetch("/api/dashboard");
+    last = await r.json();
+    $("#live").textContent = "Live"; $("#live").className = "";
+    render(last);
+  } catch (e) {
+    $("#live").textContent = "Server unreachable"; $("#live").className = "off";
+  }
+}
+
+function render(d) {
+  const st = STATE[d.room.state];
+  const orb = $("#orb");
+  orb.className = "orb " + d.room.state;
+  orb.style.setProperty("--c", st.c); orb.style.setProperty("--spd", st.spd);
+  $("#roomLabel").textContent = st.l;
+  $("#roomSub").textContent = d.room.state === "no_data" ? "The CSI receiver is not sending data"
+    : "Changed " + ago(d.room.last_change);
+
+  $("#trustLabel").innerHTML = `<span class="dot ${d.trusted.detected ? "ok" : ""}"></span>` +
+    (d.trusted.detected ? "Detected" : "Not detected");
+  $("#trustSub").textContent = d.trusted.detected ? d.trusted.name + " is in range"
+    : d.trusted.name + " last seen " + ago(d.trusted.last_seen);
+
+  $("#verdictCall").hidden = true;
+  const v = $("#verdict"), present = d.room.state === "stationary" || d.room.state === "movement";
+  if (d.room.state === "no_data") {
+    v.className = "card verdict bad"; $("#verdictLabel").textContent = "Cannot tell";
+    $("#verdictSub").textContent = "Presence can't be checked while the CSI receiver is offline.";
+  } else if (present && !d.trusted.detected) {
+    v.className = "card verdict warn"; $("#verdictCall").hidden = false; $("#verdictLabel").textContent = "Unrecognised presence";
+    $("#verdictSub").textContent = "Detected at " + clock(d.alert.since || d.now) + ". No trusted device matched.";
+  } else if (present) {
+    v.className = "card verdict ok"; $("#verdictLabel").textContent = "Recognised occupant";
+    $("#verdictSub").textContent = d.trusted.name + " is in the room.";
+  } else {
+    v.className = "card verdict"; $("#verdictLabel").textContent = "Nobody here";
+    $("#verdictSub").textContent = "No presence detected.";
+  }
+
+  drawChart(d.activity); drawStrip(d.activity);
+
+  const al = d.events.filter(e => e.type === "unrecognised");
+  $("#alertList").innerHTML = al.length ? al.map(e => {
+    const live = d.alert.active && d.alert.since && Math.abs(e.t - d.alert.since) < 1;
+    return `<div class="row"><time>${clock(e.t)}</time><span>${e.msg}</span>
+      <span class="tag ${live ? "live" : ""}">${live ? "Ongoing" : "Resolved"}</span></div>`;
+  }).join("") : `<div class="empty">No unrecognised presence so far.</div>`;
+
+  const h = (name, s, extra) => `<div class="card"><h3>${name}</h3>
+    <div class="big"><span class="dot ${s.online ? "ok" : "bad"}"></span>${s.online ? "Online" : "Offline"}</div>
+    <div class="mut">${extra}</div></div>`;
+  const s = d.system;
+  $("#health").innerHTML =
+    h("ESP32 CSI receiver", s.esp32, s.esp32.online
+      ? `${s.esp32.rate} packets/s, last packet ${ago(s.esp32.last_packet)}`
+      : `No data. Last packet ${ago(s.esp32.last_packet)}. Check power and Wi-Fi.`) +
+    h("BLE scanner", s.ble, `Last scan ${ago(s.ble.last_scan)}`);
+
+  drawEvents(d.events);
+}
+
+function drawChart(a) {
+  const W = 600, H = 160, max = 100;
+  const pts = a.map((p, i) => [i / (a.length - 1) * W, H - 8 - p.v / max * (H - 24)]);
+  const line = pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+  $("#chart").innerHTML = `<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#8b5cff" stop-opacity=".4"/><stop offset="1" stop-color="#8b5cff" stop-opacity="0"/></linearGradient><linearGradient id="gs" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#22e4ff"/><stop offset=".55" stop-color="#8b5cff"/><stop offset="1" stop-color="#ff4fd8"/></linearGradient></defs>
+    ${[0, 50, 100].map(v => { const y = H - 8 - v / max * (H - 24);
+      return `<line x1="0" x2="${W}" y1="${y}" y2="${y}" stroke="#26336b"/><text x="2" y="${y - 3}" fill="#8192b3" font-size="10">${v}</text>`; }).join("")}
+    <polygon points="0,${H} ${line} ${W},${H}" fill="url(#g)"/>
+    <polyline points="${line}" fill="none" stroke="url(#gs)" stroke-width="3" stroke-linejoin="round"/>`;
+}
+
+function drawStrip(a) {
+  $("#strip").innerHTML = a.map(p => `<div style="background:${STATE[p.s].c}"></div>`).join("");
+}
+
+function drawEvents(ev) {
+  $("#chips").innerHTML = FILTERS.map(([k, n]) =>
+    `<button class="chip ${k === filter ? "on" : ""}" data-k="${k}">${n}</button>`).join("");
+  const rows = ev.filter(e => filter === "all" || e.type === filter);
+  const key = filter + rows.length + (rows[0] ? rows[0].t : 0);
+  const box = $("#events");
+  if (box.dataset.key === key) return;   // only redraw when something changed (keeps animation calm)
+  box.dataset.key = key;
+  box.innerHTML = rows.length ? rows.map(e => `<div class="row"><time>${clock(e.t)}</time>
+    <span>${e.msg}</span><span class="tag">${e.type}</span></div>`).join("")
+    : `<div class="empty">Nothing in this category yet.</div>`;
+}
+
+$("#chips").addEventListener("click", e => {
+  if (e.target.dataset.k) { filter = e.target.dataset.k; if (last) drawEvents(last.events); }
+});
+
+// reveal sections + highlight the current nav link while scrolling
+const io = new IntersectionObserver(es => es.forEach(e => {
+  if (e.isIntersecting) {
+    e.target.classList.add("in");
+    document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#" + e.target.id));
+  }
+}), {threshold: .35});
+document.querySelectorAll("section").forEach(s => io.observe(s));
+
+// touch + pointer effects: spotlight, 3D tilt, tap ripple
+function lift(e) {
+  const c = e.target.closest(".card");
+  if (!c) return;
+  const r = c.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  c.style.setProperty("--mx", x + "px"); c.style.setProperty("--my", y + "px");
+  c.style.transform = `perspective(700px) rotateX(${(.5 - y / r.height) * 8}deg) rotateY(${(x / r.width - .5) * 8}deg) translateY(-3px)`;
+}
+function drop() { document.querySelectorAll(".card").forEach(c => c.style.transform = ""); }
+addEventListener("pointermove", lift);
+addEventListener("pointerdown", e => {
+  lift(e);
+  const t = document.createElement("i"); t.className = "tap";
+  t.style.left = e.clientX + "px"; t.style.top = e.clientY + "px";
+  document.body.appendChild(t); setTimeout(() => t.remove(), 700);
+});
+addEventListener("pointerup", e => { if (e.pointerType !== "mouse") drop(); });
+addEventListener("pointercancel", drop);
+document.addEventListener("pointerout", e => {
+  const c = e.target.closest(".card");
+  if (c && !c.contains(e.relatedTarget)) c.style.transform = "";
+});
+
+// scroll effects: progress bar, parallax blobs, hero fades away
+const blobs = [...document.querySelectorAll(".blob")], hc = $(".hc");
+function onScroll() {
+  const y = scrollY, max = Math.max(1, document.body.scrollHeight - innerHeight);
+  $("#prog").style.transform = `scaleX(${y / max})`;
+  blobs.forEach((b, i) => b.style.transform = `translateY(${y * (.12 + i * .1)}px)`);
+  hc.style.opacity = Math.max(0, 1 - y / (innerHeight * .7));
+  hc.style.transform = `translateY(${y * .25}px)`;
+}
+addEventListener("scroll", onScroll, {passive: true});
+
+// emergency panel
+$("#sosBtn").onclick = () => $("#sosBtn").setAttribute("aria-expanded", $("#sos").classList.toggle("open"));
+
+poll(); setInterval(poll, 2000);
+</script>
+</body>
+</html>
