@@ -97,17 +97,17 @@ border-right:2px solid var(--cy);opacity:.6;pointer-events:none}
 .orbwrap::before{content:"";position:absolute;width:170px;height:170px;border-radius:50%;border:1px dashed var(--vi);opacity:.55;animation:spin 18s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-#hero{display:flex;align-items:center;min-height:100vh}
-#hero h1{font-size:clamp(40px,8vw,88px);line-height:1.02;letter-spacing:-.02em;margin:18px 0;
+#hero{display:flex;align-items:center;justify-content:center;text-align:center;min-height:100vh}
+#hero h1{font-size:clamp(22px,3.8vw,42px);line-height:1.15;letter-spacing:-.02em;margin:18px 0;
 background:linear-gradient(90deg,var(--cy),var(--vi),var(--pk),var(--cy));background-size:250% 100%;
 -webkit-background-clip:text;background-clip:text;color:transparent;animation:flow 6s linear infinite,rise .9s .15s both}
 @keyframes flow{to{background-position:250% 0}}
 @keyframes rise{from{opacity:0;transform:translateY(30px)}}
-.hc>*:not(h1){animation:rise .9s both}
+.hc>*:not(h1):not(.brand){animation:rise .9s both}
 .hc>.tagchip{animation-delay:0s}.hc>p{animation-delay:.35s}.hc>.heroact{animation-delay:.55s}
 .tagchip{display:inline-block;padding:6px 14px;border:1px solid var(--line);border-radius:99px;color:var(--cy);font-size:14px}
-.hc p{font-size:19px;color:var(--mut);max-width:52ch}
-.heroact{display:flex;gap:14px;flex-wrap:wrap;margin-top:28px}
+.hc p{font-size:19px;color:var(--mut);max-width:52ch;margin:0 auto}
+.heroact{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:28px}
 .cta{display:inline-block;padding:13px 26px;border-radius:12px;font-weight:700;text-decoration:none;color:#06101f;
 background:linear-gradient(90deg,var(--cy),var(--vi));box-shadow:0 0 24px rgba(34,228,255,.35);transition:.25s}
 .cta:hover{transform:translateY(-3px) scale(1.04);box-shadow:0 0 42px rgba(139,92,255,.65)}
@@ -131,6 +131,17 @@ transform-origin:bottom right;transform:scale(.6);opacity:0;pointer-events:none;
 .sospanel b{font-size:21px;min-width:48px;color:var(--bad)}
 .tap{position:fixed;width:14px;height:14px;margin:-7px;border-radius:50%;border:2px solid var(--cy);pointer-events:none;z-index:99;animation:tap .65s ease-out forwards}
 @keyframes tap{to{transform:scale(7);opacity:0}}
+.brand{font-size:clamp(72px,19vw,220px);font-weight:700;line-height:.95;letter-spacing:.08em;padding-left:.08em;margin:16px 0 4px;
+background:linear-gradient(90deg,var(--cy),var(--vi),var(--pk),var(--cy));background-size:250% 100%;-webkit-background-clip:text;background-clip:text;
+color:transparent;animation:flow 6s linear infinite,rise .9s both;filter:drop-shadow(0 0 30px rgba(139,92,255,.45))}
+.axis{display:flex;justify-content:space-between;color:var(--mut);font-size:12px;margin-top:8px}
+#alertbar{position:fixed;top:58px;left:0;right:0;z-index:8;display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;
+padding:10px 16px;background:rgba(255,93,115,.18);border-bottom:1px solid var(--bad);color:#ffd5db;font-size:15px;
+backdrop-filter:blur(8px);animation:drop .4s}
+@keyframes drop{from{transform:translateY(-100%);opacity:0}}
+#alertbar .pulse{width:10px;height:10px;border-radius:50%;background:var(--bad);animation:blink 1s infinite}
+.row.flag{border-color:var(--warn);background:linear-gradient(90deg,rgba(255,200,61,.15),var(--card) 65%)}
+.row.flag:hover{border-color:var(--warn)}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
 @media(max-width:640px){nav a{display:none}}
 </style>
@@ -138,15 +149,16 @@ transform-origin:bottom right;transform:scale(.6);opacity:0;pointer-events:none;
 <body>
 <div class="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
 <div id="prog"></div>
+<div id="alertbar" hidden><span class="pulse"></span><b>System disconnected</b><span id="alertmsg"></span></div>
 <nav>
   <b>VEYRA</b>
-  <a href="#overview">Overview</a><a href="#activity">Activity</a><a href="#alerts">Alerts</a>
-  <a href="#system">System</a><a href="#history">History</a>
+  <a href="#overview">Overview</a><a href="#activity">Activity</a><a href="#history">History</a>
   <span id="live">Live</span>
 </nav>
 
 <section id="hero"><div class="hc">
   <span class="tagchip">Wi-Fi CSI + Bluetooth, live</span>
+  <div class="brand">VEYRA</div>
   <h1>Senses the room.<br>Never watches you.</h1>
   <p>VEYRA detects presence from Wi-Fi signals and recognises your trusted device. No cameras. No GPS.</p>
   <div class="heroact"><a class="cta" href="#overview">See the room live</a><a class="cta ghost" href="tel:112">Emergency: call 112</a></div>
@@ -158,7 +170,7 @@ transform-origin:bottom right;transform:scale(.6);opacity:0;pointer-events:none;
   <div class="grid">
     <div class="card"><h3>Room status</h3>
       <div class="orbwrap"><div class="orb" id="orb"><i></i><i></i><i></i></div></div>
-      <div class="big" id="roomLabel">Connecting…</div>
+      <div class="big" id="roomLabel">Checking sensors…</div>
       <div class="mut" id="roomSub">Waiting for data</div></div>
     <div class="card"><h3>Trusted device</h3>
       <div class="big" id="trustLabel">–</div>
@@ -172,35 +184,25 @@ transform-origin:bottom right;transform:scale(.6);opacity:0;pointer-events:none;
 
 <section id="activity" class="reveal">
   <h2>Activity</h2>
-  <p class="sub">Signal activity from the last two minutes. Higher means more movement in the room.</p>
+  <p class="sub">Signal activity over the last 30 minutes. Higher means more movement in the room.</p>
   <div class="card"><h3>Activity level</h3>
-    <svg viewBox="0 0 600 160" id="chart"></svg></div>
+    <svg viewBox="0 0 600 160" id="chart"></svg>
+    <div class="axis"><span>30 min ago</span><span>15 min ago</span><span>Now</span></div></div>
   <div class="card" style="margin-top:18px"><h3>Room state timeline</h3>
     <div class="strip" id="strip"></div>
+    <div class="axis"><span>30 min ago</span><span>15 min ago</span><span>Now</span></div>
     <div class="legend">
       <span><span class="dot" style="background:var(--idle)"></span>Empty</span>
       <span><span class="dot" style="background:var(--still)"></span>Stationary</span>
       <span><span class="dot" style="background:var(--move)"></span>Movement</span>
-      <span><span class="dot" style="background:var(--bad)"></span>No data</span>
+      <span><span class="dot" style="background:var(--bad)"></span>No sensor data</span>
     </div></div>
-</section>
-
-<section id="alerts" class="reveal">
-  <h2>Unrecognised presence</h2>
-  <p class="sub">Raised when someone is detected but no trusted device is.</p>
-  <div class="note">An alert does not mean an intruder. It only means no matching trusted device was found.</div>
-  <div class="list" id="alertList"></div>
-</section>
-
-<section id="system" class="reveal">
-  <h2>System health</h2>
-  <p class="sub">If a sensor drops out, the room shows "No data" instead of "Empty".</p>
-  <div class="grid" id="health"></div>
 </section>
 
 <section id="history" class="reveal">
   <h2>Event history</h2>
-  <p class="sub">Everything the system has noticed, newest first.</p>
+  <p class="sub">Everything the system has noticed, newest first. Unrecognised presence is flagged in amber.</p>
+  <div class="note">A flag does not mean an intruder. It only means someone was detected and no trusted device matched.</div>
   <div class="chips" id="chips"></div>
   <div class="list" id="events"></div>
 </section>
@@ -222,13 +224,14 @@ const STATE = {
   empty:      {l: "Empty",                 c: "var(--idle)",  spd: "4.5s"},
   stationary: {l: "Occupied, stationary",  c: "var(--still)", spd: "3s"},
   movement:   {l: "Movement detected",     c: "var(--move)",  spd: "1.2s"},
-  no_data:    {l: "No data",               c: "var(--bad)",   spd: "4s"},
+  no_data: {l: "Can't reach sensor data",               c: "var(--bad)",   spd: "4s"},
 };
 const ago = t => { const s = Math.max(0, Math.round(Date.now()/1000 - t));
   return s < 60 ? s + "s ago" : Math.round(s/60) + " min ago"; };
 const clock = t => new Date(t*1000).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"});
-const FILTERS = [["all","All"],["room","Room"],["trusted","Trusted device"],["unrecognised","Unrecognised"],["system","System"]];
+const FILTERS = [["all","All"],["room","Room"],["trusted","Trusted device"],["unrecognised","Flagged"],["system","System"]];
 let filter = "all", last = null;
+const TYPE = {room: "Room", trusted: "Trusted device", unrecognised: "Unrecognised presence", system: "System"};
 
 async function poll() {
   try {
@@ -238,6 +241,7 @@ async function poll() {
     render(last);
   } catch (e) {
     $("#live").textContent = "Server unreachable"; $("#live").className = "off";
+    if (!last) { $("#roomLabel").textContent = "Can't reach the dashboard server"; $("#roomSub").textContent = "Start app.py and open http://127.0.0.1:5000"; }
   }
 }
 
@@ -247,7 +251,7 @@ function render(d) {
   orb.className = "orb " + d.room.state;
   orb.style.setProperty("--c", st.c); orb.style.setProperty("--spd", st.spd);
   $("#roomLabel").textContent = st.l;
-  $("#roomSub").textContent = d.room.state === "no_data" ? "The CSI receiver is not sending data"
+  $("#roomSub").textContent = d.room.state === "no_data" ? "The sensors aren't sending data right now"
     : "Changed " + ago(d.room.last_change);
 
   $("#trustLabel").innerHTML = `<span class="dot ${d.trusted.detected ? "ok" : ""}"></span>` +
@@ -271,24 +275,16 @@ function render(d) {
     $("#verdictSub").textContent = "No presence detected.";
   }
 
+  const sy = d.system, down = [];
+  if (!sy.esp32.online) down.push("ESP32 CSI receiver");
+  if (!sy.ble.online) down.push("BLE scanner");
+  $("#alertbar").hidden = !down.length;
+  if (down.length) $("#alertmsg").textContent = down.join(" and ") + " not responding. Can't reach sensor data right now.";
+  if (!sy.ble.online) { $("#trustLabel").innerHTML = `<span class="dot bad"></span>Unknown`; $("#trustSub").textContent = "Can't reach the BLE scanner."; }
+
   drawChart(d.activity); drawStrip(d.activity);
 
-  const al = d.events.filter(e => e.type === "unrecognised");
-  $("#alertList").innerHTML = al.length ? al.map(e => {
-    const live = d.alert.active && d.alert.since && Math.abs(e.t - d.alert.since) < 1;
-    return `<div class="row"><time>${clock(e.t)}</time><span>${e.msg}</span>
-      <span class="tag ${live ? "live" : ""}">${live ? "Ongoing" : "Resolved"}</span></div>`;
-  }).join("") : `<div class="empty">No unrecognised presence so far.</div>`;
 
-  const h = (name, s, extra) => `<div class="card"><h3>${name}</h3>
-    <div class="big"><span class="dot ${s.online ? "ok" : "bad"}"></span>${s.online ? "Online" : "Offline"}</div>
-    <div class="mut">${extra}</div></div>`;
-  const s = d.system;
-  $("#health").innerHTML =
-    h("ESP32 CSI receiver", s.esp32, s.esp32.online
-      ? `${s.esp32.rate} packets/s, last packet ${ago(s.esp32.last_packet)}`
-      : `No data. Last packet ${ago(s.esp32.last_packet)}. Check power and Wi-Fi.`) +
-    h("BLE scanner", s.ble, `Last scan ${ago(s.ble.last_scan)}`);
 
   drawEvents(d.events);
 }
@@ -313,12 +309,13 @@ function drawEvents(ev) {
   $("#chips").innerHTML = FILTERS.map(([k, n]) =>
     `<button class="chip ${k === filter ? "on" : ""}" data-k="${k}">${n}</button>`).join("");
   const rows = ev.filter(e => filter === "all" || e.type === filter);
-  const key = filter + rows.length + (rows[0] ? rows[0].t : 0);
+  const key = filter + rows.length + (rows[0] ? rows[0].t : 0) + last.alert.active;
   const box = $("#events");
   if (box.dataset.key === key) return;   // only redraw when something changed (keeps animation calm)
   box.dataset.key = key;
-  box.innerHTML = rows.length ? rows.map(e => `<div class="row"><time>${clock(e.t)}</time>
-    <span>${e.msg}</span><span class="tag">${e.type}</span></div>`).join("")
+  box.innerHTML = rows.length ? rows.map(e => {
+      const f = e.type === "unrecognised", live = f && last.alert.active && last.alert.since && Math.abs(e.t - last.alert.since) < 1;
+      return `<div class="row ${f ? "flag" : ""}"><time>${clock(e.t)}</time><span>${e.msg}</span><span class="tag ${f ? "live" : ""}">${f ? (live ? "Flagged, ongoing" : "Flagged") : TYPE[e.type]}</span></div>`; }).join("")
     : `<div class="empty">Nothing in this category yet.</div>`;
 }
 
