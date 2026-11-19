@@ -1,74 +1,85 @@
-"""VEYRA dashboard backend (mock data).
+"""VEYRA dashboard backend (real data, no mock data).
 
 Run:   pip install flask
        python app.py
 Open:  http://127.0.0.1:5000
 
-The browser only talks to ONE endpoint: /api/dashboard.
-Later, replace the code inside get_dashboard() with real CSI + BLE data.
-Keep the returned JSON shape the same and the HTML never needs to change.
+HOW DATA GETS IN
+Your teammates' scripts SEND their results to this server with a small HTTP POST:
+  POST /api/csi  {"state": "empty" | "stationary" | "movement"}    from the CSI model
+  POST /api/ble  {"detected": true or false, "name": "Watch-01"}   from the BLE scanner
+The web page reads everything from GET /api/dashboard.
+
+Until the first data arrives, the dashboard honestly shows "System disconnected".
 """
-import random
+import os
+import threading
 import time
 from collections import Counter, deque
 
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory
 
-app = Flask(__name__, static_folder="static")
+# ------------------------------------------------------------------ SETTINGS
+HOST, PORT = "127.0.0.1", 5000   # use "0.0.0.0" if the ESP32 / another computer must reach this
+CSI_TIMEOUT = 10      # seconds without a CSI result before the ESP32 counts as disconnected
+BLE_TIMEOUT = 15      # seconds without a scanner message before the BLE scanner counts as disconnected
+TRUSTED_GRACE = 20    # trusted device still counts as "detected" this long after it was last seen
+LABEL_MAP = {0: "empty", 1: "stationary", 2: "movement"}   # if your model outputs numbers, edit this
+DEFAULT_LEVEL = {"empty": 3, "stationary": 20, "movement": 75}  # graph height if no "level" is sent
+# --------------------------------------------------------------------------
 
-# ---------------------------------------------------------------- MOCK DATA
-# Everything in this block is fake. Swap it for real hardware output later.
-LEVEL = {"empty": (0, 6), "stationary": (14, 30), "movement": (55, 95)}
-now0 = time.time()
-_c = {"state": "empty", "since": now0, "trusted": False, "alert_since": None,
-      "outage": 0.0, "last_sample": 0.0}
+BASE = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, static_folder=os.path.join(BASE, "static"))
+lock = threading.Lock()
+
+S = {"csi_state": None, "csi_since": 0.0, "csi_last": 0.0, "level": 0,
+     "ble_last": 0.0, "ble_seen": 0.0, "ble_name": "Watch-01",
+     "alert_since": None, "last_sample": 0.0}
+_prev = {"room": "no_data", "trusted": False, "esp": False, "ble": False}
 _events = []
-_activity = deque(maxlen=1000)  # one sample every ~2s (about 33 minutes)
+_activity = deque(maxlen=1000)    # one sample every ~2s (about 33 minutes)
+_csi_times = deque(maxlen=200)
+ROOM_TEXT = {"empty": "Room is empty", "stationary": "Room occupied (stationary)",
+             "movement": "Movement detected"}
 
 
-def _log(kind, msg, t=None):
-    _events.insert(0, {"t": t or time.time(), "type": kind, "msg": msg})
+def _log(kind, msg):
+    _events.insert(0, {"t": time.time(), "type": kind, "msg": msg})
+    del _events[500:]
 
 
-
-
-
-def _tick():
+def _evaluate():
+    """Work out the current picture and log anything that changed. Call with the lock held."""
     now = time.time()
-    off = _c["outage"] > now
-    if _c["outage"] and not off:
-        _c["outage"] = 0.0
-        _log("system", "ESP32 CSI receiver back online")
+    esp = now - S["csi_last"] < CSI_TIMEOUT
+    ble = now - S["ble_last"] < BLE_TIMEOUT
+    room = S["csi_state"] if esp and S["csi_state"] else "no_data"
+    trusted = ble and now - S["ble_seen"] < TRUSTED_GRACE
+    name = S["ble_name"]
 
-    if not off and now - _c["since"] > random.randint(8, 18):
-        if random.random() < 0.08:  # simulate a sensor dropout
-            _c["outage"] = now + 10
-            _log("system", "ESP32 data interrupted: no packets received")
-        else:
-            was_trusted, old = _c["trusted"], _c["state"]
-            _c["state"] = random.choice(["empty", "stationary", "movement"])
-            _c["since"] = now
-            _c["trusted"] = _c["state"] != "empty" and random.random() < 0.55
-            labels = {"empty": "Room is empty", "stationary": "Room occupied (stationary)",
-                      "movement": "Movement detected"}
-            _log("room", labels[_c["state"]])
-            if _c["trusted"] and not was_trusted:
-                _log("trusted", "Trusted device detected: Watch-01")
-            if was_trusted and not _c["trusted"]:
-                _log("trusted", "Trusted device lost: Watch-01")
-            present = _c["state"] != "empty"
-            if present and not _c["trusted"]:
-                if not _c["alert_since"]:
-                    _c["alert_since"] = now
-                    _log("unrecognised", "Unrecognised presence: no trusted device matched")
-            else:
-                _c["alert_since"] = None
+    if esp != _prev["esp"]:
+        _log("system", "ESP32 CSI receiver online" if esp else "ESP32 data interrupted: no results received")
+    if ble != _prev["ble"]:
+        _log("system", "BLE scanner online" if ble else "BLE scanner stopped responding")
+    if room != _prev["room"] and room != "no_data":
+        _log("room", ROOM_TEXT[room])
+    if trusted != _prev["trusted"]:
+        _log("trusted", f"Trusted device detected: {name}" if trusted else f"Trusted device lost: {name}")
 
-    if now - _c["last_sample"] >= 2:
-        _c["last_sample"] = now
-        st = "no_data" if off else _c["state"]
-        lo, hi = LEVEL.get(st, (0, 0))
-        _activity.append({"t": now, "v": random.randint(lo, hi), "s": st})
+    # Unrecognised presence = someone is there, the BLE scanner works, but no trusted device matched.
+    flag = room in ("stationary", "movement") and ble and not trusted
+    if flag and not S["alert_since"]:
+        S["alert_since"] = now
+        _log("unrecognised", "Unrecognised presence: no trusted device matched")
+    if not flag:
+        S["alert_since"] = None
+
+    _prev.update(room=room, trusted=trusted, esp=esp, ble=ble)
+
+    if now - S["last_sample"] >= 2:
+        S["last_sample"] = now
+        _activity.append({"t": now, "v": S["level"] if room != "no_data" else 0, "s": room})
+    return now, esp, ble, room, trusted
 
 
 def _buckets(n=60, span=1800):
@@ -88,24 +99,79 @@ def _buckets(n=60, span=1800):
 
 
 def get_dashboard():
-    _tick()
+    with lock:
+        now, esp, ble, room, trusted = _evaluate()
+        recent = len([t for t in _csi_times if now - t < 10])
+        return {
+            "now": now,
+            "room": {"state": room, "last_change": S["csi_since"]},
+            "trusted": {"detected": trusted, "name": S["ble_name"], "last_seen": S["ble_seen"] or None},
+            "alert": {"active": bool(S["alert_since"]), "since": S["alert_since"]},
+            "system": {
+                "esp32": {"online": esp, "last_packet": S["csi_last"], "rate": round(recent / 10, 1)},
+                "ble": {"online": ble, "last_scan": S["ble_last"], "rate": 0},
+            },
+            "activity": _buckets(),
+            "events": _events[:100],
+        }
+
+
+def _norm_state(v):
+    """Accepts 'movement', 'Movement', or a number from LABEL_MAP. Returns None if unusable."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)) or (isinstance(v, str) and v.strip().isdigit()):
+        return LABEL_MAP.get(int(float(v)))
+    if isinstance(v, str):
+        v = v.strip().lower()
+        return v if v in DEFAULT_LEVEL else None
+    return None
+
+
+def _clock():
+    while True:   # keeps timeouts, history and the event log going even if nobody has the page open
+        with lock:
+            _evaluate()
+        time.sleep(1)
+
+
+threading.Thread(target=_clock, daemon=True).start()
+
+
+# ---------------------------------------------------------------- ROUTES
+@app.route("/api/csi", methods=["POST"])
+def post_csi():
+    d = request.get_json(silent=True) or {}
+    st = _norm_state(d.get("state"))
+    if st is None:
+        return jsonify(error='send {"state": "empty" | "stationary" | "movement"}'), 400
     now = time.time()
-    off = _c["outage"] > now
-    return {
-        "now": now,
-        "room": {"state": "no_data" if off else _c["state"], "last_change": _c["since"]},
-        "trusted": {"detected": _c["trusted"], "name": "Watch-01",
-                    "last_seen": now if _c["trusted"] else now - 600},
-        "alert": {"active": bool(_c["alert_since"]) and not off, "since": _c["alert_since"]},
-        "system": {
-            "esp32": {"online": not off, "last_packet": now - (30 if off else random.random()),
-                      "rate": 0 if off else random.randint(92, 104)},
-            "ble": {"online": True, "last_scan": now - random.random() * 2, "rate": 1},
-        },
-        "activity": _buckets(),
-        "events": _events[:100],
-    }
-# ------------------------------------------------------------- END MOCK DATA
+    try:
+        level = float(d.get("level", DEFAULT_LEVEL[st]))
+    except (TypeError, ValueError):
+        level = DEFAULT_LEVEL[st]
+    with lock:
+        if st != S["csi_state"]:
+            S["csi_since"] = now
+        S["csi_state"], S["csi_last"] = st, now
+        S["level"] = max(0, min(100, level))
+        _csi_times.append(now)
+        _evaluate()
+    return jsonify(ok=True)
+
+
+@app.route("/api/ble", methods=["POST"])
+def post_ble():
+    d = request.get_json(silent=True) or {}
+    now = time.time()
+    with lock:
+        S["ble_last"] = now                      # any message counts as "scanner is alive"
+        if d.get("name"):
+            S["ble_name"] = str(d["name"])[:40]
+        if d.get("detected") is True:
+            S["ble_seen"] = now
+        _evaluate()
+    return jsonify(ok=True)
 
 
 @app.route("/api/dashboard")
@@ -115,8 +181,11 @@ def dashboard():
 
 @app.route("/")
 def index():
-    return send_from_directory(".", "index.html")
+    for folder in (os.path.join(BASE, "static"), BASE):
+        if os.path.exists(os.path.join(folder, "index.html")):
+            return send_from_directory(folder, "index.html")
+    return "index.html not found. Put it in a folder called 'static' next to app.py.", 404
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host=HOST, port=PORT, debug=(HOST == "127.0.0.1"))
