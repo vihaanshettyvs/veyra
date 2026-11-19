@@ -30,32 +30,7 @@ def _log(kind, msg, t=None):
     _events.insert(0, {"t": t or time.time(), "type": kind, "msg": msg})
 
 
-def _seed():
-    # a little fake history so the page is not empty on first load
-    for mins, kind, msg in [
-        (42, "system", "ESP32 CSI receiver connected"),
-        (38, "room", "Room became occupied (stationary)"),
-        (38, "trusted", "Trusted device detected: Watch-01"),
-        (21, "room", "Movement detected"),
-        (15, "trusted", "Trusted device lost: Watch-01"),
-        (15, "unrecognised", "Unrecognised presence: no trusted device matched"),
-        (9, "room", "Room is empty"),
-    ]:
-        _log(kind, msg, now0 - mins * 60)
-    i = 0  # fake 30 minutes of activity history
-    while i < 900:
-        st = random.choice(["empty", "stationary", "movement"])
-        for _ in range(random.randint(40, 120)):
-            if i >= 900:
-                break
-            lo, hi = LEVEL[st]
-            _activity.append({"t": now0 - (900 - i) * 2, "v": random.randint(lo, hi), "s": st})
-            i += 1
-    for p in list(_activity)[-30:]:  # end on "empty" so it matches the live state
-        p["s"], p["v"] = "empty", random.randint(0, 6)
 
-
-_seed()
 
 
 def _tick():
@@ -140,7 +115,7 @@ def dashboard():
 
 @app.route("/")
 def index():
-    return send_from_directory("static", "index.html")
+    return send_from_directory(".", "index.html")
 
 
 if __name__ == "__main__":
